@@ -8,12 +8,19 @@ import {
   Res,
   Param,
 } from '@nestjs/common';
+import { ApiTags, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
-import { LocalRegisterDto } from './dto/local-auth.dto';
-import { AuthUser, JwtTokens } from '@/types/auth.type';
+import type { CurrentUser } from '@/types/auth.type';
+import { AuthenticateResult, JwtTokens } from '@/types/auth.type';
 import express from 'express';
 import { FirebaseLoginDto } from './dto/firebase-login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
+import {
+  LoginResponseDto,
+  JwtTokensResponseDto,
+} from './dto/auth-response.dto';
+import { ReqUser } from '@/common/decorators/user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -24,42 +31,42 @@ export class AuthController {
    * Uses LocalStrategy to validate credentials.
    * Sets JWTs in HTTP-Only cookies.
    */
-  @Post('local/login')
-  @UseGuards(AuthGuard('local'))
-  async localLogin(
-    @Req() req,
-    @Res({ passthrough: true }) res: express.Response
-  ) {
-    const { user } = req.user as AuthUser;
+  // @Post('local/login')
+  // @UseGuards(AuthGuard('local'))
+  // async localLogin(
+  //   @Req() req,
+  //   @Res({ passthrough: true }) res: express.Response
+  // ) {
+  //   const { user } = req.user as AuthUser;
 
-    // Generate JWTs and store Refresh Token hash in DB.
-    const { accessToken, refreshToken } = await this.authService.getTokens(
-      user.id,
-      user.email
-    );
+  //   // Generate JWTs and store Refresh Token hash in DB.
+  //   const { accessToken, refreshToken } = await this.authService.getTokens(
+  //     user.id,
+  //     user.email
+  //   );
 
-    this.setTokensInCookies(res, accessToken, refreshToken);
+  //   this.setTokensInCookies(res, accessToken, refreshToken);
 
-    return {
-      message: 'Login successful.',
-      userId: user.id,
-    };
-  }
+  //   return {
+  //     message: 'Login successful.',
+  //     userId: user.id,
+  //   };
+  // }
   /**
    * Handles local user registration (ID and Password).
    * @param localRegisterDto DTO containing user credentials.
    * @returns Success message upon registration.
    */
-  @Post('local/register')
-  async registerLocal(@Body() localRegisterDto: LocalRegisterDto) {
-    // AuthService handles password hashing and database creation.
-    const user = await this.authService.registerLocalUser(localRegisterDto);
+  // @Post('local/register')
+  // async registerLocal(@Body() localRegisterDto: LocalRegisterDto) {
+  //   // AuthService handles password hashing and database creation.
+  //   const user = await this.authService.registerLocalUser(localRegisterDto);
 
-    return {
-      message: 'Registration successful.',
-      userId: user.id,
-    };
-  }
+  //   return {
+  //     message: 'Registration successful.',
+  //     userId: user.id,
+  //   };
+  // }
 
   /**
    * Handles Google login using an Access Token provided by the client.
@@ -69,17 +76,19 @@ export class AuthController {
    */
   @Post('google/token')
   @UseGuards(AuthGuard('google-token'))
+  @ApiResponse({
+    status: 200,
+    type: LoginResponseDto,
+  })
   async googleTokenLogin(
-    @Body() GoogleLoginDto,
+    @Body() googleLoginDto: GoogleLoginDto,
     @Req() req,
     @Res({ passthrough: true }) res: express.Response
   ) {
-    const { user, isNewUser } = req.user as AuthUser;
+    const { user, isNewUser } = req.user as AuthenticateResult;
 
-    const { accessToken, refreshToken } = await this.authService.getTokens(
-      user.id,
-      user.email
-    );
+    const { accessToken, refreshToken } =
+      await this.authService.getTokens(user);
 
     this.setTokensInCookies(res, accessToken, refreshToken);
 
@@ -94,6 +103,15 @@ export class AuthController {
 
   @Post('firebase/:provider')
   @UseGuards(AuthGuard('firebase-auth'))
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful. JWT tokens set in cookies.',
+    type: LoginResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid Firebase ID Token',
+  })
   /**
    * @param provider - The social provider name.
    * @param firebaseLoginDto - Defined to specify the request body. Not used directly in the method logic.
@@ -105,12 +123,10 @@ export class AuthController {
     @Req() req,
     @Res({ passthrough: true }) res: express.Response
   ) {
-    const { user, isNewUser } = req.user as AuthUser;
+    const { user, isNewUser } = req.user as AuthenticateResult;
 
-    const { accessToken, refreshToken } = await this.authService.getTokens(
-      user.id,
-      user.email
-    );
+    const { accessToken, refreshToken } =
+      await this.authService.getTokens(user);
 
     this.setTokensInCookies(res, accessToken, refreshToken);
 
@@ -128,13 +144,44 @@ export class AuthController {
    * This endpoint requires JWT (Refresh Token) validation
    * Used when jwt is store on the client side
    */
-  @Get('jwt/refresh')
-  @UseGuards(AuthGuard('jwt-refresh'))
-  async refreshTokens(@Req() req): Promise<JwtTokens> {
-    // req.user contains the decoded refresh token payload (id, email)
-    const { id, email } = req.user;
+  // @Get('jwt/refresh')
+  // @UseGuards(AuthGuard('jwt-refresh'))
+  // @ApiResponse({
+  //   status: 200,
+  //   description: 'New tokens generated successfully',
+  //   type: JwtTokensResponseDto,
+  // })
+  // @ApiResponse({
+  //   status: 401,
+  //   description: 'Invalid or expired Refresh Token',
+  // })
+  // async refreshTokens(@Req() req): Promise<JwtTokens> {
+  //   // req.user contains the decoded refresh token payload (id, email)
+  //   const { id, email } = req.user;
 
-    return this.authService.getTokens(id, email);
+  //   return this.authService.getTokens(id, email);
+  // }
+
+  /**
+   * Refreshes Shopify access token for the authenticated user
+   */
+  @Post('shopify/refresh')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiResponse({
+    status: 200,
+    description: 'Shopify token refreshed successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Shopify token refresh failed',
+  })
+  async refreshShopifyToken(@ReqUser() user: CurrentUser) {
+    const result = await this.authService.refreshShopifyToken(user.id);
+
+    return {
+      message: 'Shopify token refreshed successfully',
+      expiresAt: result.expiresAt,
+    };
   }
 
   /**
@@ -152,15 +199,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24 * 3, // 3 days
-    });
-
-    // Refresh Token (Long-lived, HTTP-Only)
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      maxAge: 1000 * 60 * 60 * 12, // 12 hours
     });
   }
 }

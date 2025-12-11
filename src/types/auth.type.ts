@@ -1,18 +1,22 @@
-import { User } from '@/generated/prisma/client';
+import { User } from '@/generated/prisma';
 
 /**
  * User in request object after validation
  */
-export type CurrentUser = {
-  id: number;
-  email: string;
-};
+export type CurrentUser = Pick<
+  User,
+  | 'id'
+  | 'email'
+  | 'shopifyCustomerId'
+  | 'shopifyAccessToken'
+  | 'shopifyAccessTokenExpiresAt'
+>;
 
 /**
  * Result structure returned by local and social login.
  */
-export interface AuthUser {
-  user: User;
+export interface AuthenticateResult {
+  user: CurrentUser;
   isNewUser: boolean;
 }
 

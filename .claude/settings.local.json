@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(yarn add:*)"
+      "Bash(yarn add:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(npm run start:dev:*)"
     ],
     "deny": [],
     "ask": []

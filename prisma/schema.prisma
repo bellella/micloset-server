@@ -1,26 +1,77 @@
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
   moduleFormat = "cjs" 
 }
 
+generator prismaClassGenerator {
+  provider = "prisma-class-generator"
+  output   = "../src/generated/prisma/entities"
+  dryRun   = false
+}
+
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                        Int      @id @default(autoincrement())
-  email                     String   @unique
-  
-  password                  String?  
-  provider                  String   @default("local")
-  providerId                String?
-  refreshTokenHash          String?  @db.Text 
+  id                          Int       @id @default(autoincrement())
+  firebaseUid                 String?   @unique
+  shopifyCustomerId           String?   @unique
+  provider                    String
+  email                       String
+  firstName                   String?
+  lastName                    String?
+  shopifyAccessToken          String?
+  shopifyAccessTokenExpiresAt DateTime?
+  shopifyPasswordHash         String?
 
-  firstName                 String?
-  lastName                  String?
-  
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  cart                        Cart?
+  reviews                     Review[]
+  wishlistItems               WishlistItem[]
+
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+}
+
+model Cart {
+  id            Int      @id @default(autoincrement())
+  shopifyCartId String   @unique
+
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Review {
+  id        Int     @id @default(autoincrement())
+  productId String
+  rating    Int
+  title     String?
+  body      String
+
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+}
+
+model WishlistItem {
+  id        Int     @id @default(autoincrement())
+  productId String
+  variantId String?
+
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
 }

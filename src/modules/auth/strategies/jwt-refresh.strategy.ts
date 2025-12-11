@@ -6,7 +6,7 @@ import { Request } from 'express';
 import { JwtPayload } from '@/types/jwt.type';
 import { AuthService } from '../auth.service';
 import { UsersService } from '@/modules/users/users.service';
-import { User } from '@/generated/prisma/client';
+import { User } from '@/generated/prisma';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(

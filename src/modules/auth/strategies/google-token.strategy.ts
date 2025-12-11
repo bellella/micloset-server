@@ -50,8 +50,8 @@ export class GoogleTokenStrategy extends PassportStrategy(
         lastName: data.family_name,
       };
 
-      // Use AuthService to find/create the user (upsert)
-      const user = await this.authService.upsertSocialUser(
+      // Use AuthService to find/create the user and handle Shopify integration
+      const user = await this.authService.authenticateSocialUser(
         userProfile,
         'google'
       );

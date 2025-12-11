@@ -4,7 +4,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import * as admin from 'firebase-admin';
 import { AuthService } from '../auth.service';
-import { AuthUser, SocialProvider } from '@/types/auth.type';
+import { AuthenticateResult, SocialProvider } from '@/types/auth.type';
 import { FirebaseLoginDto } from '../dto/firebase-login.dto';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class FirebaseStrategy extends PassportStrategy(
     super();
   }
 
-  async validate(req: Request): Promise<AuthUser> {
+  async validate(req: Request): Promise<AuthenticateResult> {
     const body = req.body as FirebaseLoginDto;
     const idToken = body.idToken;
 
@@ -40,7 +40,7 @@ export class FirebaseStrategy extends PassportStrategy(
         lastName: '',
       };
 
-      return this.authService.upsertSocialUser(userProfile, provider);
+      return this.authService.authenticateSocialUser(userProfile, provider);
     } catch (e) {
       console.error('Firebase Token Error:', e);
       throw new UnauthorizedException('Invalid Firebase Token.');
