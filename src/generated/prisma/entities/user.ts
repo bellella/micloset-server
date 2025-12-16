@@ -25,15 +25,6 @@ export class User {
   @ApiPropertyOptional({ type: String })
   lastName?: string;
 
-  @ApiPropertyOptional({ type: String })
-  shopifyAccessToken?: string;
-
-  @ApiPropertyOptional({ type: Date })
-  shopifyAccessTokenExpiresAt?: Date;
-
-  @ApiPropertyOptional({ type: String })
-  shopifyPasswordHash?: string;
-
   @ApiPropertyOptional({ type: () => Cart })
   cart?: Cart;
 

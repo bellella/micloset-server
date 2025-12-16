@@ -1,52 +1,66 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import { GraphQLClient, gql } from 'graphql-request';
 import { ConfigService } from '@nestjs/config';
-import {
-  ShopifyCustomer,
-  ShopifyCustomerAccessToken,
-} from './dto/customer.dto';
+import '@shopify/shopify-api/adapters/node';
+import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api';
+import { ShopifyCustomer } from './dto/customer.dto';
 import { CursorResponseDto } from '@/common/dto/curosr-response.dto';
 import { ShopifyOrder } from './dto/order.dto';
 
 @Injectable()
 export class ShopifyService {
-  private client: GraphQLClient;
-  private readonly adminAccessToken: string;
-  private readonly shopName: string;
+  private shopify: ReturnType<typeof shopifyApi>;
+  private session: Session;
+  private client: any;
 
   constructor(private configService: ConfigService) {
-    this.adminAccessToken = this.configService.get<string>(
+    const adminAccessToken = this.configService.get<string>(
       'SHOPIFY_ADMIN_ACCESS_TOKEN',
       ''
     );
-    this.shopName = this.configService.get<string>('SHOPIFY_SHOP_NAME', '');
+    const shopName = this.configService.get<string>('SHOPIFY_SHOP_NAME', '');
+    const apiSecretKey = this.configService.get<string>(
+      'SHOPIFY_API_SECRET',
+      'not-needed'
+    );
 
-    if (!this.adminAccessToken || !this.shopName) {
+    if (!adminAccessToken || !shopName) {
       throw new Error('Shopify Admin API configuration is missing');
     }
 
-    // Admin API client only
-    this.client = new GraphQLClient(
-      `https://${this.shopName}.myshopify.com/admin/api/2024-10/graphql.json`,
-      {
-        headers: {
-          'X-Shopify-Access-Token': this.adminAccessToken,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Initialize Shopify API
+    this.shopify = shopifyApi({
+      apiKey: '78942ec25826ba03e84c42c0eb940f00',
+      apiSecretKey,
+      scopes: ['read_customers', 'read_products', 'read_orders'],
+      hostName: `${shopName}.myshopify.com`,
+      apiVersion: ApiVersion.April25,
+      isEmbeddedApp: false,
+      isCustomStoreApp: true,
+      adminApiAccessToken: adminAccessToken,
+    });
+
+    // Create session for Admin API
+    this.session = new Session({
+      id: `offline_${shopName}`,
+      shop: `${shopName}.myshopify.com`,
+      state: 'state',
+      isOnline: false,
+      accessToken: adminAccessToken,
+    });
+
+    // Create GraphQL client
+    this.client = new this.shopify.clients.Graphql({ session: this.session });
   }
 
-  async getCustomer(customerAccessToken: string): Promise<ShopifyCustomer> {
-    const query = gql`
-      query getCustomer($customerAccessToken: String!) {
-        customer(customerAccessToken: $customerAccessToken) {
+  async getCustomer(customerId: string): Promise<ShopifyCustomer> {
+    const query = `
+      query getCustomer($customerId: ID!) {
+        customer(id: $customerId) {
           id
           email
           firstName
           lastName
           phone
-          acceptsMarketing
           createdAt
           updatedAt
           defaultAddress {
@@ -66,9 +80,13 @@ export class ShopifyService {
     `;
 
     try {
-      const data: any = await this.client.request(query, {
-        customerAccessToken,
+      const response: any = await this.client.request(query, {
+        variables: {
+          customerId,
+        },
       });
+
+      const data = response.data;
 
       if (!data.customer) {
         throw new HttpException(
@@ -87,67 +105,101 @@ export class ShopifyService {
   }
 
   async getCustomerOrders(
-    customerAccessToken: string,
+    email: string,
+    cursor?: string,
     first: number = 10
   ): Promise<CursorResponseDto<ShopifyOrder>> {
-    const query = gql`
-      query getCustomerOrders($customerAccessToken: String!, $first: Int!) {
-        customer(customerAccessToken: $customerAccessToken) {
-          orders(first: $first, sortKey: PROCESSED_AT, reverse: true) {
-            edges {
-              cursor
-              node {
+    const query = `
+      query getCustomerOrders($query: String, $first: Int!, $after: String) {
+        orders(first: $first, query: $query, sortKey: PROCESSED_AT, reverse: true, after: $after) {
+          edges {
+            cursor
+            node {
+              id
+              name
+              processedAt
+              closedAt
+              displayFinancialStatus
+              displayFulfillmentStatus
+              email
+              customer {
                 id
-                orderNumber
-                processedAt
-                financialStatus
-                fulfillmentStatus
-                totalPrice {
+              }
+              totalPriceSet {
+                shopMoney {
                   amount
                   currencyCode
                 }
-                lineItems(first: 50) {
-                  edges {
-                    node {
+              }
+              lineItems(first: 50) {
+                edges {
+                  node {
+                    id
+                    title
+                    quantity
+                    product {
+                      id
+                    }
+                    variant {
+                      id
                       title
-                      quantity
-                      variant {
-                        id
-                        title
-                        image {
-                          url
-                        }
-                        price {
-                          amount
-                          currencyCode
-                        }
+                      image {
+                        url
                       }
+                      price
                     }
                   }
                 }
               }
             }
           }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
         }
       }
     `;
 
     try {
-      const data: any = await this.client.request(query, {
-        customerAccessToken,
-        first,
+      const response: any = await this.client.request(query, {
+        variables: {
+          query: `email:${email}`,
+          first,
+          after: cursor || null,
+        },
       });
 
-      if (!data.customer) {
-        throw new HttpException(
-          'Customer not found or invalid access token',
-          HttpStatus.NOT_FOUND
-        );
+      const data = response.data;
+
+      if (!data.orders) {
+        throw new HttpException('Orders not found', HttpStatus.NOT_FOUND);
       }
 
       return {
-        items: data.customer.orders.edges.map((edge: any) => edge.node),
-        nextCursor: data.customer.orders.edges.cursor,
+        items: data.orders.edges.map((edge: any) => {
+          const order = edge.node;
+          const hasReviewableItems = this.checkIfOrderHasReviewableItems(order);
+
+          return {
+            id: order.id,
+            orderNumber: parseInt(order.name.replace('#', '')),
+            processedAt: order.processedAt,
+            closedAt: order.closedAt,
+            financialStatus: order.displayFinancialStatus,
+            fulfillmentStatus: order.displayFulfillmentStatus,
+            totalPrice: {
+              amount: order.totalPriceSet.shopMoney.amount,
+              currencyCode: order.totalPriceSet.shopMoney.currencyCode,
+            },
+            customer: order.customer,
+            lineItems: order.lineItems,
+            hasReviewableItems,
+          };
+        }),
+        nextCursorString: data.orders.pageInfo.hasNextPage
+          ? data.orders.pageInfo.endCursor
+          : null,
       };
     } catch (error) {
       throw new HttpException(
@@ -157,79 +209,100 @@ export class ShopifyService {
     }
   }
 
-  async updateCustomer(
-    customerAccessToken: string,
-    updateData: {
-      firstName?: string;
-      lastName?: string;
-      email?: string;
-      phone?: string;
-      acceptsMarketing?: boolean;
+  private checkIfOrderHasReviewableItems(order: any): boolean {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Check if order has closedAt null or closedAt within 7 days
+    if (order.closedAt === null) {
+      return true;
     }
-  ): Promise<ShopifyCustomer> {
-    const mutation = gql`
-      mutation customerUpdate(
-        $customerAccessToken: String!
-        $customer: CustomerUpdateInput!
-      ) {
-        customerUpdate(
-          customerAccessToken: $customerAccessToken
-          customer: $customer
-        ) {
-          customer {
-            id
-            email
-            firstName
-            lastName
-            phone
-            acceptsMarketing
-            createdAt
-            updatedAt
-          }
-          customerUserErrors {
-            code
-            field
-            message
+
+    if (order.closedAt) {
+      const closedAtDate = new Date(order.closedAt);
+      return closedAtDate >= sevenDaysAgo;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get customer by email
+   */
+  async getCustomerByEmail(email: string): Promise<ShopifyCustomer | null> {
+    const query = `
+      query getCustomerByEmail($query: String!) {
+        customers(first: 1, query: $query) {
+          edges {
+            node {
+              id
+              email
+              firstName
+              lastName
+              phone
+              createdAt
+              updatedAt
+              defaultAddress {
+                address1
+                address2
+                city
+                company
+                country
+                firstName
+                lastName
+                phone
+                province
+                zip
+              }
+            }
           }
         }
       }
     `;
 
     try {
-      const data: any = await this.client.request(mutation, {
-        customerAccessToken,
-        customer: updateData,
+      const response: any = await this.client.request(query, {
+        variables: {
+          query: `email:${email}`,
+        },
       });
 
-      if (data.customerUpdate.customerUserErrors.length > 0) {
-        const errors = data.customerUpdate.customerUserErrors
-          .map((err: any) => err.message)
-          .join(', ');
-        throw new HttpException(errors, HttpStatus.BAD_REQUEST);
+      const data = response.data;
+
+      if (data.customers.edges.length === 0) {
+        return null;
       }
 
-      return data.customerUpdate.customer;
+      return data.customers.edges[0].node;
     } catch (error) {
-      throw new HttpException(
-        error.message || 'Failed to update customer',
-        HttpStatus.BAD_REQUEST
-      );
+      console.error('Error fetching customer by email:', error);
+      return null;
     }
   }
 
   async createCustomer(customerData: {
     email: string;
-    password: string;
     firstName?: string;
     lastName?: string;
     phone?: string;
-    acceptsMarketing?: boolean;
   }): Promise<{
     customer: ShopifyCustomer;
-    customerAccessToken: ShopifyCustomerAccessToken;
   }> {
-    const mutation = gql`
-      mutation customerCreate($input: CustomerCreateInput!) {
+    // First, check if customer already exists in Shopify
+    const existingCustomer = await this.getCustomerByEmail(customerData.email);
+
+    if (existingCustomer) {
+      console.log(
+        'Customer already exists in Shopify, returning existing customer'
+      );
+      return {
+        customer: existingCustomer,
+      };
+    }
+
+    // Customer doesn't exist, create new one
+    const mutation = `
+      mutation customerCreate($input: CustomerInput!) {
         customerCreate(input: $input) {
           customer {
             id
@@ -237,106 +310,8 @@ export class ShopifyService {
             firstName
             lastName
             phone
-            acceptsMarketing
             createdAt
             updatedAt
-          }
-          customerUserErrors {
-            code
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    try {
-      const data: any = await this.client.request(mutation, {
-        input: customerData,
-      });
-
-      if (data.customerCreate.customerUserErrors.length > 0) {
-        const errors = data.customerCreate.customerUserErrors
-          .map((err: any) => err.message)
-          .join(', ');
-        throw new HttpException(errors, HttpStatus.BAD_REQUEST);
-      }
-
-      const customer = data.customerCreate.customer;
-
-      // Create access token for the new customer
-      const accessTokenResult = await this.createCustomerAccessToken(
-        customerData.email,
-        customerData.password
-      );
-
-      return {
-        customer,
-        customerAccessToken: accessTokenResult,
-      };
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Failed to create customer',
-        HttpStatus.BAD_REQUEST
-      );
-    }
-  }
-
-  async createCustomerAccessToken(
-    email: string,
-    password: string
-  ): Promise<ShopifyCustomerAccessToken> {
-    const mutation = gql`
-      mutation customerAccessTokenCreate(
-        $input: CustomerAccessTokenCreateInput!
-      ) {
-        customerAccessTokenCreate(input: $input) {
-          customerAccessToken {
-            accessToken
-            expiresAt
-          }
-          customerUserErrors {
-            code
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    try {
-      const data: any = await this.client.request(mutation, {
-        input: {
-          email,
-          password,
-        },
-      });
-
-      if (data.customerAccessTokenCreate.customerUserErrors.length > 0) {
-        const errors = data.customerAccessTokenCreate.customerUserErrors
-          .map((err: any) => err.message)
-          .join(', ');
-        throw new HttpException(errors, HttpStatus.BAD_REQUEST);
-      }
-
-      return data.customerAccessTokenCreate.customerAccessToken;
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Failed to create customer access token',
-        HttpStatus.BAD_REQUEST
-      );
-    }
-  }
-
-  async renewCustomerAccessToken(
-    accessToken: string
-  ): Promise<ShopifyCustomerAccessToken> {
-    const mutation = gql`
-      mutation customerAccessTokenRenew($customerAccessToken: String!) {
-        customerAccessTokenRenew(customerAccessToken: $customerAccessToken) {
-          customerAccessToken {
-            accessToken
-            expiresAt
           }
           userErrors {
             field
@@ -347,28 +322,54 @@ export class ShopifyService {
     `;
 
     try {
-      const data: any = await this.client.request(mutation, {
-        customerAccessToken: accessToken,
+      const response: any = await this.client.request(mutation, {
+        variables: {
+          input: customerData,
+        },
       });
 
-      if (data.customerAccessTokenRenew.userErrors.length > 0) {
-        const errors = data.customerAccessTokenRenew.userErrors
+      const data = response.data;
+
+      if (data.customerCreate.userErrors.length > 0) {
+        // If error is "email already taken", try to fetch the existing customer
+        const emailError = data.customerCreate.userErrors.find(
+          (err: any) =>
+            err.field?.includes('email') &&
+            err.message?.includes('already been taken')
+        );
+
+        if (emailError) {
+          const existingCustomer = await this.getCustomerByEmail(
+            customerData.email
+          );
+          if (existingCustomer) {
+            return {
+              customer: existingCustomer,
+            };
+          }
+        }
+
+        const errors = data.customerCreate.userErrors
           .map((err: any) => err.message)
           .join(', ');
         throw new HttpException(errors, HttpStatus.BAD_REQUEST);
       }
 
-      return data.customerAccessTokenRenew.customerAccessToken;
+      const customer = data.customerCreate.customer;
+
+      return {
+        customer,
+      };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Failed to renew customer access token',
+        error.message || 'Failed to create customer',
         HttpStatus.BAD_REQUEST
       );
     }
   }
 
   async getOrderById(orderId: string): Promise<ShopifyOrder> {
-    const query = gql`
+    const query = `
       query getOrder($id: ID!) {
         order(id: $id) {
           id
@@ -403,15 +404,17 @@ export class ShopifyService {
     `;
 
     try {
-      const data: any = await this.client.request(query, {
-        id: orderId,
+      const response: any = await this.client.request({
+        query,
+        variables: {
+          id: orderId,
+        },
       });
 
+      const data = response.data;
+
       if (!data.order) {
-        throw new HttpException(
-          'Order not found',
-          HttpStatus.NOT_FOUND
-        );
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
       }
 
       // Transform Admin API response to match ShopifyOrder format
@@ -435,11 +438,76 @@ export class ShopifyService {
     }
   }
 
-  isTokenExpired(expiresAt: Date | null): boolean {
-    if (!expiresAt) return true;
+  /**
+   * Update product metafield with average rating
+   */
+  async updateProductRatingMetafield(
+    productId: string,
+    averageRating: number,
+    totalReviews: number
+  ): Promise<void> {
+    const mutation = `
+      mutation productUpdate($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+            metafields(first: 10) {
+              edges {
+                node {
+                  namespace
+                  key
+                  value
+                }
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
 
-    // Add 5 minute buffer before actual expiration
-    const bufferMs = 5 * 60 * 1000;
-    return new Date().getTime() + bufferMs >= new Date(expiresAt).getTime();
+    try {
+      const response: any = await this.client.request(mutation, {
+        variables: {
+          input: {
+            id: productId,
+            metafields: [
+              {
+                namespace: 'custom',
+                key: 'average_rating',
+                value: averageRating.toFixed(2),
+                type: 'number_decimal',
+              },
+              {
+                namespace: 'custom',
+                key: 'total_reviews',
+                value: totalReviews.toString(),
+                type: 'number_integer',
+              },
+            ],
+          },
+        },
+      });
+
+      const data = response.data;
+
+      if (data.productUpdate.userErrors.length > 0) {
+        const errors = data.productUpdate.userErrors
+          .map((err: any) => err.message)
+          .join(', ');
+        throw new HttpException(
+          `Failed to update product metafield: ${errors}`,
+          HttpStatus.BAD_REQUEST
+        );
+      }
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to update product metafield',
+        HttpStatus.BAD_REQUEST
+      );
+    }
   }
 }

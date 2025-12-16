@@ -13,6 +13,11 @@ export class CursorRequestDto {
   @Type(() => Number)
   cursor?: number;
 
+  @ApiProperty({ type: String, nullable: true, required: false })
+  @IsOptional()
+  @Type(() => String)
+  cursorString?: string;
+
   /**
    * Number of items to fetch per page.
    * Default is 10.

@@ -17,6 +17,7 @@ import { ApiOkResponse } from '@nestjs/swagger';
 import { ShopifyTokenGuard } from './guards/shopify-token.guard';
 import { CursorRequestDto } from '@/common/dto/cursor-request.dto';
 import { getCustomerOrdersResponse, ShopifyOrder } from './dto/order.dto';
+import { ReqUser } from '@/common/decorators/user.decorator';
 
 @Controller('shopify')
 @UseGuards(JwtAuthGuard, ShopifyTokenGuard)
@@ -26,18 +27,18 @@ export class ShopifyController {
   @Get('customer')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ShopifyCustomer })
-  async getCustomer(@Req() req) {
-    return this.shopifyService.getCustomer(req.shopifyAccessToken);
+  async getCustomer(@ReqUser('shopifyCustomerId') shopifyCustomerId) {
+    return this.shopifyService.getCustomer(shopifyCustomerId);
   }
 
   @Get('customer/orders')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: getCustomerOrdersResponse })
-  async getCustomerOrders(@Req() req, @Query() query: CursorRequestDto) {
-    return this.shopifyService.getCustomerOrders(
-      req.shopifyAccessToken,
-      query.cursor
-    );
+  async getCustomerOrders(
+    @ReqUser('email') email,
+    @Query() query: CursorRequestDto
+  ) {
+    return this.shopifyService.getCustomerOrders(email, query.cursorString);
   }
 
   @Get('customer/orders/:orderId')
@@ -47,16 +48,16 @@ export class ShopifyController {
     return this.shopifyService.getOrderById(orderId);
   }
 
-  @Post('customer/update')
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: ShopifyCustomer })
-  async updateCustomer(
-    @Req() req,
-    @Body() updateCustomerDto: UpdateCustomerDto
-  ) {
-    return this.shopifyService.updateCustomer(
-      req.shopifyAccessToken,
-      updateCustomerDto
-    );
-  }
+  // @Post('customer/update')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOkResponse({ type: ShopifyCustomer })
+  // async updateCustomer(
+  //   @Req() req,
+  //   @Body() updateCustomerDto: UpdateCustomerDto
+  // ) {
+  //   return this.shopifyService.updateCustomer(
+  //     req.shopifyAccessToken,
+  //     updateCustomerDto
+  //   );
+  // }
 }

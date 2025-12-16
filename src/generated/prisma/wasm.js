@@ -101,9 +101,6 @@ exports.Prisma.UserScalarFieldEnum = {
   email: 'email',
   firstName: 'firstName',
   lastName: 'lastName',
-  shopifyAccessToken: 'shopifyAccessToken',
-  shopifyAccessTokenExpiresAt: 'shopifyAccessTokenExpiresAt',
-  shopifyPasswordHash: 'shopifyPasswordHash',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -119,12 +116,22 @@ exports.Prisma.CartScalarFieldEnum = {
 exports.Prisma.ReviewScalarFieldEnum = {
   id: 'id',
   productId: 'productId',
+  lineItemId: 'lineItemId',
   rating: 'rating',
   title: 'title',
   body: 'body',
+  images: 'images',
+  helpfulCount: 'helpfulCount',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ReviewHelpfulScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  userId: 'userId',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.WishlistItemScalarFieldEnum = {
@@ -155,6 +162,7 @@ exports.Prisma.ModelName = {
   User: 'User',
   Cart: 'Cart',
   Review: 'Review',
+  ReviewHelpful: 'ReviewHelpful',
   WishlistItem: 'WishlistItem'
 };
 /**
@@ -205,13 +213,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider     = \"prisma-client-js\"\n  output       = \"../src/generated/prisma\"\n  moduleFormat = \"cjs\"\n}\n\ngenerator prismaClassGenerator {\n  provider = \"prisma-class-generator\"\n  output   = \"../src/generated/prisma/entities\"\n  dryRun   = false\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id                          Int       @id @default(autoincrement())\n  firebaseUid                 String?   @unique\n  shopifyCustomerId           String?   @unique\n  provider                    String\n  email                       String\n  firstName                   String?\n  lastName                    String?\n  shopifyAccessToken          String?\n  shopifyAccessTokenExpiresAt DateTime?\n  shopifyPasswordHash         String?\n\n  cart          Cart?\n  reviews       Review[]\n  wishlistItems WishlistItem[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Cart {\n  id            Int    @id @default(autoincrement())\n  shopifyCartId String @unique\n\n  userId Int  @unique\n  user   User @relation(fields: [userId], references: [id])\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Review {\n  id        Int     @id @default(autoincrement())\n  productId String\n  rating    Int\n  title     String?\n  body      String\n\n  userId Int\n  user   User @relation(fields: [userId], references: [id])\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@unique([userId, productId])\n}\n\nmodel WishlistItem {\n  id        Int     @id @default(autoincrement())\n  productId String\n  variantId String?\n\n  userId Int\n  user   User @relation(fields: [userId], references: [id])\n\n  createdAt DateTime @default(now())\n\n  @@unique([userId, productId])\n}\n",
-  "inlineSchemaHash": "37d0b6e3ce168d3e52efa30c85305ae9ddef73fc4dc022feac8b63e86d7b6ccd",
+  "inlineSchema": "generator client {\n  provider     = \"prisma-client-js\"\n  output       = \"../src/generated/prisma\"\n  moduleFormat = \"cjs\"\n}\n\ngenerator prismaClassGenerator {\n  provider = \"prisma-class-generator\"\n  output   = \"../src/generated/prisma/entities\"\n  dryRun   = false\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id                Int     @id @default(autoincrement())\n  firebaseUid       String? @unique\n  shopifyCustomerId String? @unique\n  provider          String\n  email             String\n  firstName         String?\n  lastName          String?\n\n  cart          Cart?\n  reviews       Review[]\n  wishlistItems WishlistItem[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Cart {\n  id            Int    @id @default(autoincrement())\n  shopifyCartId String @unique\n\n  userId Int  @unique\n  user   User @relation(fields: [userId], references: [id])\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n}\n\nmodel Review {\n  id           Int      @id @default(autoincrement())\n  productId    String\n  lineItemId   String\n  rating       Int\n  title        String?\n  body         String\n  images       String[] // Array of image URLs\n  helpfulCount Int      @default(0)\n\n  userId Int\n  user   User @relation(fields: [userId], references: [id])\n\n  helpfulUsers ReviewHelpful[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@unique([userId, lineItemId])\n}\n\nmodel ReviewHelpful {\n  id       Int    @id @default(autoincrement())\n  reviewId Int\n  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)\n  userId   Int\n\n  createdAt DateTime @default(now())\n\n  @@unique([reviewId, userId])\n}\n\nmodel WishlistItem {\n  id        Int     @id @default(autoincrement())\n  productId String\n  variantId String?\n\n  userId Int\n  user   User @relation(fields: [userId], references: [id])\n\n  createdAt DateTime @default(now())\n\n  @@unique([userId, productId])\n}\n",
+  "inlineSchemaHash": "92f08361b6e60a23a22bbd007e5b100948b7e8c18b573f7bede5a1936812cf01",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"firebaseUid\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"shopifyCustomerId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"provider\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"firstName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"lastName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"shopifyAccessToken\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"shopifyAccessTokenExpiresAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"shopifyPasswordHash\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"cart\",\"kind\":\"object\",\"type\":\"Cart\",\"relationName\":\"CartToUser\"},{\"name\":\"reviews\",\"kind\":\"object\",\"type\":\"Review\",\"relationName\":\"ReviewToUser\"},{\"name\":\"wishlistItems\",\"kind\":\"object\",\"type\":\"WishlistItem\",\"relationName\":\"UserToWishlistItem\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"Cart\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"shopifyCartId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CartToUser\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"Review\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"productId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"rating\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"body\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"ReviewToUser\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"WishlistItem\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"productId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"variantId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserToWishlistItem\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"firebaseUid\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"shopifyCustomerId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"provider\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"firstName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"lastName\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"cart\",\"kind\":\"object\",\"type\":\"Cart\",\"relationName\":\"CartToUser\"},{\"name\":\"reviews\",\"kind\":\"object\",\"type\":\"Review\",\"relationName\":\"ReviewToUser\"},{\"name\":\"wishlistItems\",\"kind\":\"object\",\"type\":\"WishlistItem\",\"relationName\":\"UserToWishlistItem\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"Cart\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"shopifyCartId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CartToUser\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"Review\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"productId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"lineItemId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"rating\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"body\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"images\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"helpfulCount\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"ReviewToUser\"},{\"name\":\"helpfulUsers\",\"kind\":\"object\",\"type\":\"ReviewHelpful\",\"relationName\":\"ReviewToReviewHelpful\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"ReviewHelpful\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"reviewId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"review\",\"kind\":\"object\",\"type\":\"Review\",\"relationName\":\"ReviewToReviewHelpful\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"WishlistItem\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"productId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"variantId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserToWishlistItem\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),

@@ -9,9 +9,15 @@ export class ShopifyOrder {
   @ApiProperty()
   processedAt: string;
   @ApiProperty()
+  closedAt?: string | null;
+  @ApiProperty()
   financialStatus: string;
   @ApiProperty()
   fulfillmentStatus: string;
+  @ApiProperty()
+  customer?: {
+    id: string;
+  };
   @ApiProperty()
   totalPrice: {
     amount: string;
@@ -21,19 +27,25 @@ export class ShopifyOrder {
   lineItems: {
     edges: Array<{
       node: {
+        id: string;
         title: string;
         quantity: number;
+        product: {
+          id: string;
+        };
         variant: {
           id: string;
           title: string;
-          price: {
-            amount: string;
-            currencyCode: string;
+          image?: {
+            url: string;
           };
+          price: string;
         };
       };
     }>;
   };
+  @ApiProperty()
+  hasReviewableItems?: boolean;
 }
 
 export class getCustomerOrdersResponse extends CursorResponseDto<ShopifyOrder> {

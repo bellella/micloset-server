@@ -1,4 +1,5 @@
 import { User } from './user';
+import { ReviewHelpful } from './review_helpful';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class Review {
@@ -7,6 +8,9 @@ export class Review {
 
   @ApiProperty({ type: String })
   productId: string;
+
+  @ApiProperty({ type: String })
+  lineItemId: string;
 
   @ApiProperty({ type: Number })
   rating: number;
@@ -17,11 +21,20 @@ export class Review {
   @ApiProperty({ type: String })
   body: string;
 
+  @ApiProperty({ isArray: true, type: String })
+  images: string[];
+
+  @ApiProperty({ type: Number })
+  helpfulCount: number;
+
   @ApiProperty({ type: Number })
   userId: number;
 
   @ApiProperty({ type: () => User })
   user: User;
+
+  @ApiProperty({ isArray: true, type: () => ReviewHelpful })
+  helpfulUsers: ReviewHelpful[];
 
   @ApiProperty({ type: Date })
   createdAt: Date;

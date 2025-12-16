@@ -162,27 +162,6 @@ export class AuthController {
   //   return this.authService.getTokens(id, email);
   // }
 
-  /**
-   * Refreshes Shopify access token for the authenticated user
-   */
-  @Post('shopify/refresh')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiResponse({
-    status: 200,
-    description: 'Shopify token refreshed successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Shopify token refresh failed',
-  })
-  async refreshShopifyToken(@ReqUser() user: CurrentUser) {
-    const result = await this.authService.refreshShopifyToken(user.id);
-
-    return {
-      message: 'Shopify token refreshed successfully',
-      expiresAt: result.expiresAt,
-    };
-  }
 
   /**
    * Sets the Access Token and Refresh Token in secure HTTP-Only cookies.
@@ -199,7 +178,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 12, // 12 hours
+      maxAge: 1000 * 60 * 60 * 12 * 2, // 2 days
     });
   }
 }

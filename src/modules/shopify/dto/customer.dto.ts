@@ -1,11 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty } from 'class-validator';
-
-export class CustomerAccessTokenDto {
-  @IsString()
-  @IsNotEmpty()
-  accessToken: string;
-}
 
 export class UpdateCustomerDto {
   firstName?: string;
@@ -13,31 +6,6 @@ export class UpdateCustomerDto {
   email?: string;
   phone?: string;
   acceptsMarketing?: boolean;
-}
-
-export class CreateCustomerDto {
-  @IsString()
-  @IsNotEmpty()
-  email: string;
-
-  @IsString()
-  @IsNotEmpty()
-  password: string;
-
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  acceptsMarketing?: boolean;
-}
-
-export class CreateAccessTokenDto {
-  @IsString()
-  @IsNotEmpty()
-  email: string;
-
-  @IsString()
-  @IsNotEmpty()
-  password: string;
 }
 
 export interface ShopifyAddress {
@@ -51,34 +19,6 @@ export interface ShopifyAddress {
   phone?: string;
   province?: string;
   zip?: string;
-}
-
-export class ShopifyOrder {
-  id: string;
-  orderNumber: number;
-  processedAt: string;
-  financialStatus: string;
-  fulfillmentStatus: string;
-  totalPrice: {
-    amount: string;
-    currencyCode: string;
-  };
-  lineItems: {
-    edges: Array<{
-      node: {
-        title: string;
-        quantity: number;
-        variant: {
-          id: string;
-          title: string;
-          price: {
-            amount: string;
-            currencyCode: string;
-          };
-        };
-      };
-    }>;
-  };
 }
 
 // export interface ShopifyCustomer {
@@ -113,18 +53,6 @@ export class ShopifyCustomer {
   acceptsMarketing: boolean;
   createdAt: string;
   updatedAt: string;
-  // orders?:
-  //   | {
-  //       edges: Array<{
-  //         node: ShopifyOrder;
-  //       }>;
-  //     }
-  //   | undefined;
   @ApiProperty()
   defaultAddress?: ShopifyAddress | undefined;
-}
-
-export interface ShopifyCustomerAccessToken {
-  accessToken: string;
-  expiresAt: string;
 }

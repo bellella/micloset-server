@@ -3,14 +3,7 @@ import { User } from '@/generated/prisma';
 /**
  * User in request object after validation
  */
-export type CurrentUser = Pick<
-  User,
-  | 'id'
-  | 'email'
-  | 'shopifyCustomerId'
-  | 'shopifyAccessToken'
-  | 'shopifyAccessTokenExpiresAt'
->;
+export type CurrentUser = Pick<User, 'id' | 'email' | 'shopifyCustomerId'>;
 
 /**
  * Result structure returned by local and social login.

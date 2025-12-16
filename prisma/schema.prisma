@@ -17,23 +17,20 @@ datasource db {
 }
 
 model User {
-  id                          Int       @id @default(autoincrement())
-  firebaseUid                 String?   @unique
-  shopifyCustomerId           String?   @unique
-  provider                    String
-  email                       String
-  firstName                   String?
-  lastName                    String?
-  shopifyAccessToken          String?
-  shopifyAccessTokenExpiresAt DateTime?
-  shopifyPasswordHash         String?
+  id                Int       @id @default(autoincrement())
+  firebaseUid       String?   @unique
+  shopifyCustomerId String?   @unique
+  provider          String
+  email             String
+  firstName         String?
+  lastName          String?
 
-  cart                        Cart?
-  reviews                     Review[]
-  wishlistItems               WishlistItem[]
+  cart          Cart?
+  reviews       Review[]
+  wishlistItems WishlistItem[]
 
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Cart {
@@ -48,19 +45,35 @@ model Cart {
 }
 
 model Review {
-  id        Int     @id @default(autoincrement())
-  productId String
-  rating    Int
-  title     String?
-  body      String
+  id           Int      @id @default(autoincrement())
+  productId    String
+  lineItemId   String
+  rating       Int
+  title        String?
+  body         String
+  images       String[] // Array of image URLs
+  helpfulCount Int      @default(0)
 
   userId    Int
   user      User    @relation(fields: [userId], references: [id])
 
+  helpfulUsers ReviewHelpful[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, productId])
+  @@unique([userId, lineItemId])
+}
+
+model ReviewHelpful {
+  id       Int @id @default(autoincrement())
+  reviewId Int
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId   Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([reviewId, userId])
 }
 
 model WishlistItem {

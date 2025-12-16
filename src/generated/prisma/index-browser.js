@@ -129,9 +129,6 @@ exports.Prisma.UserScalarFieldEnum = {
   email: 'email',
   firstName: 'firstName',
   lastName: 'lastName',
-  shopifyAccessToken: 'shopifyAccessToken',
-  shopifyAccessTokenExpiresAt: 'shopifyAccessTokenExpiresAt',
-  shopifyPasswordHash: 'shopifyPasswordHash',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -147,12 +144,22 @@ exports.Prisma.CartScalarFieldEnum = {
 exports.Prisma.ReviewScalarFieldEnum = {
   id: 'id',
   productId: 'productId',
+  lineItemId: 'lineItemId',
   rating: 'rating',
   title: 'title',
   body: 'body',
+  images: 'images',
+  helpfulCount: 'helpfulCount',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ReviewHelpfulScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  userId: 'userId',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.WishlistItemScalarFieldEnum = {
@@ -183,6 +190,7 @@ exports.Prisma.ModelName = {
   User: 'User',
   Cart: 'Cart',
   Review: 'Review',
+  ReviewHelpful: 'ReviewHelpful',
   WishlistItem: 'WishlistItem'
 };
 

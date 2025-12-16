@@ -7,7 +7,8 @@
       "Bash(npx prisma:*)",
       "Bash(npm run build:*)",
       "Bash(find:*)",
-      "Bash(npm run start:dev:*)"
+      "Bash(npm run start:dev:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes\" npx prisma migrate reset:*)"
     ],
     "deny": [],
     "ask": []

@@ -16,11 +16,12 @@ import {
   GetMyReviewsResponse,
   UpdateReviewDto,
   UpdateReviewResponse,
+  GetReviewableItemsResponse,
+  GetAllByProductIdResponse,
 } from './dto/review.dto';
 import { ReqUser } from '@/common/decorators/user.decorator';
 import type { CurrentUser } from '@/types/auth.type';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Review } from '@/generated/prisma/entities/review';
 import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { DeleteResultDto } from '@/common/dto/delete-result.dto';
 import { CursorRequestDto } from '@/common/dto/cursor-request.dto';
@@ -58,6 +59,20 @@ export class ReviewsController {
   }
 
   /**
+   * Get reviewable items for the current user.
+   * If orderId is provided, items from that order are returned separately.
+   */
+  @Get('reviewable')
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ type: GetReviewableItemsResponse })
+  async getReviewableItems(
+    @ReqUser() user: CurrentUser,
+    @Query('orderId') orderId?: string
+  ) {
+    return this.reviewsService.getReviewableItems(user.email, user.id, orderId);
+  }
+
+  /**
    * GET /reviews/product/:productId
    * Public endpoint to fetch reviews for a product page.
    * Note: Assuming productId is a string (Shopify ID).
@@ -67,7 +82,7 @@ export class ReviewsController {
    * OR handle URL encoding on client side.
    */
   @Get('product/:productId')
-  @ApiCreatedResponse({ type: [Review] })
+  @ApiCreatedResponse({ type: GetAllByProductIdResponse })
   async getAllByProductId(
     @Query() query: CursorRequestDto,
     @Param('productId') productId: string
@@ -106,5 +121,35 @@ export class ReviewsController {
   ): Promise<DeleteResultDto> {
     const review = await this.reviewsService.remove(user.id, id);
     return { success: true, deletedId: review.id };
+  }
+
+  /**
+   * POST /reviews/:id/helpful
+   * Mark a review as helpful.
+   */
+  @Post(':id/helpful')
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ description: 'Review marked as helpful' })
+  async markAsHelpful(
+    @ReqUser() user: CurrentUser,
+    @Param('id', ParseIntPipe) id: number
+  ): Promise<{ success: boolean }> {
+    await this.reviewsService.markAsHelpful(user.id, id);
+    return { success: true };
+  }
+
+  /**
+   * DELETE /reviews/:id/helpful
+   * Remove helpful mark from a review.
+   */
+  @Delete(':id/helpful')
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ description: 'Helpful mark removed' })
+  async removeHelpful(
+    @ReqUser() user: CurrentUser,
+    @Param('id', ParseIntPipe) id: number
+  ): Promise<{ success: boolean }> {
+    await this.reviewsService.removeHelpful(user.id, id);
+    return { success: true };
   }
 }
