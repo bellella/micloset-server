@@ -132,7 +132,23 @@ export class ReviewsService {
       nextCursor = nextItem ? nextItem.id : null;
     }
 
-    return new CursorResponseDto(items, nextCursor);
+    // Get unique product IDs
+    const productIds = [...new Set(items.map((item) => item.productId))];
+
+    // Fetch product images from Shopify
+    const imageUrlsMap =
+      await this.shopifyService.getProductImagesByIds(productIds);
+
+    // Enrich reviews with product images
+    const enrichedItems = items.map((item) => {
+      const imageUrl = imageUrlsMap.get(item.productId);
+      return {
+        ...item,
+        productImageUrl: imageUrl,
+      };
+    });
+
+    return new CursorResponseDto(enrichedItems, nextCursor);
   }
 
   /**

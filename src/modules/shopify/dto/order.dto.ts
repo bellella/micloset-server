@@ -33,6 +33,9 @@ export class ShopifyOrder {
         product: {
           id: string;
         };
+        image: {
+          url;
+        };
         variant: {
           id: string;
           title: string;

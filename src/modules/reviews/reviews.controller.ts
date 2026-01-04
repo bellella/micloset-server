@@ -9,7 +9,10 @@ import {
   UseGuards,
   ParseIntPipe,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ReviewsService } from './reviews.service';
 import {
   CreateReviewDto,
@@ -22,26 +25,48 @@ import {
 import { ReqUser } from '@/common/decorators/user.decorator';
 import type { CurrentUser } from '@/types/auth.type';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiConsumes } from '@nestjs/swagger';
 import { DeleteResultDto } from '@/common/dto/delete-result.dto';
 import { CursorRequestDto } from '@/common/dto/cursor-request.dto';
+import { FilesService } from '../files/file.service';
 
 @Controller('reviews')
 export class ReviewsController {
-  constructor(private readonly reviewsService: ReviewsService) {}
+  constructor(
+    private readonly reviewsService: ReviewsService,
+    private readonly filesService: FilesService
+  ) {}
 
   /**
    * POST /reviews
    * Creates a new review. Requires Session Auth.
+   * Supports multipart/form-data for image uploads (max 5 images)
    */
   @Post()
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FilesInterceptor('images', 5))
+  @ApiConsumes('multipart/form-data')
   @ApiCreatedResponse({ type: Number })
   async create(
     @ReqUser() user: CurrentUser,
-    @Body() createReviewDto: CreateReviewDto
+    @Body() createReviewDto: CreateReviewDto,
+    @UploadedFiles() files?: Express.Multer.File[]
   ) {
-    const review = await this.reviewsService.create(user.id, createReviewDto);
+    // Upload images to S3 if provided
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      imageUrls = await Promise.all(
+        files.map((file) => this.filesService.uploadToS3(file))
+      );
+    }
+
+    // Merge uploaded image URLs with DTO
+    const reviewData = {
+      ...createReviewDto,
+      images: imageUrls,
+    };
+
+    const review = await this.reviewsService.create(user.id, reviewData);
     return review.id;
   }
 

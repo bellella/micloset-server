@@ -5,6 +5,7 @@ import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api';
 import { ShopifyCustomer } from './dto/customer.dto';
 import { CursorResponseDto } from '@/common/dto/curosr-response.dto';
 import { ShopifyOrder } from './dto/order.dto';
+import { ShopifyImage } from './dto/product.dto';
 
 @Injectable()
 export class ShopifyService {
@@ -137,6 +138,9 @@ export class ShopifyService {
                     id
                     title
                     quantity
+                    image {
+                      url
+                    }
                     product {
                       id
                     }
@@ -435,6 +439,95 @@ export class ShopifyService {
         error.message || 'Failed to fetch order',
         HttpStatus.BAD_REQUEST
       );
+    }
+  }
+
+  /**
+   * Get product information by ID
+   */
+  async getProductById(productId: string): Promise<{
+    id: string;
+    title: string;
+    featuredImage?: ShopifyImage;
+  } | null> {
+    const query = `
+      query getProduct($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          featuredImage {
+            url
+          }
+        }
+      }
+    `;
+
+    try {
+      const response: any = await this.client.request(query, {
+        variables: {
+          id: productId,
+        },
+      });
+
+      const data = response.data;
+
+      if (!data.product) {
+        return null;
+      }
+
+      return data.product;
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get product featured images by product IDs
+   * Returns a map of product ID to image URL
+   */
+  async getProductImagesByIds(
+    productIds: string[]
+  ): Promise<Map<string, string>> {
+    if (productIds.length === 0) {
+      return new Map();
+    }
+
+    const query = `
+      query getProductImages($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on Product {
+            id
+            featuredImage {
+              url
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response: any = await this.client.request(query, {
+        variables: {
+          ids: productIds,
+        },
+      });
+
+      const data = response.data;
+      const imageUrlsMap = new Map<string, string>();
+
+      if (data.nodes) {
+        data.nodes.forEach((product: any) => {
+          if (product && product.id && product.featuredImage?.url) {
+            imageUrlsMap.set(product.id, product.featuredImage.url);
+          }
+        });
+      }
+
+      return imageUrlsMap;
+    } catch (error) {
+      console.error('Error fetching product images:', error);
+      return new Map();
     }
   }
 

@@ -21,12 +21,12 @@ export class CursorRequestDto {
   /**
    * Number of items to fetch per page.
    * Default is 10.
-   * @default 10
+   * @default 9
    */
-  @ApiProperty({ type: Number, nullable: true, default: 10, required: false })
+  @ApiProperty({ type: Number, nullable: true, default: 9, required: false })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
-  limit: number = 1;
+  limit: number = 9;
 }
