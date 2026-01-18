@@ -21,11 +21,17 @@ import {
   UpdateReviewResponse,
   GetReviewableItemsResponse,
   GetAllByProductIdResponse,
+  ReviewWithoutUser,
+  GetPreviewByProductId,
 } from './dto/review.dto';
 import { ReqUser } from '@/common/decorators/user.decorator';
 import type { CurrentUser } from '@/types/auth.type';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiCreatedResponse, ApiOkResponse, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { DeleteResultDto } from '@/common/dto/delete-result.dto';
 import { CursorRequestDto } from '@/common/dto/cursor-request.dto';
 import { FilesService } from '../files/file.service';
@@ -98,6 +104,17 @@ export class ReviewsController {
   }
 
   /**
+   * GET /reviews/product/:productId/preview
+   * Public endpoint to fetch preview reviews (5) for product detail page.
+   */
+  @Get('product/:productId/preview')
+  @ApiCreatedResponse({ type: GetPreviewByProductId })
+  async getPreviewByProductId(@Param('productId') productId: string) {
+    const decodedId = decodeURIComponent(productId);
+    return this.reviewsService.findPreviewByProduct(decodedId);
+  }
+
+  /**
    * GET /reviews/product/:productId
    * Public endpoint to fetch reviews for a product page.
    * Note: Assuming productId is a string (Shopify ID).
@@ -115,6 +132,17 @@ export class ReviewsController {
     // Decoding might be needed if the ID comes in encoded format
     const decodedId = decodeURIComponent(productId);
     return this.reviewsService.findAllByProduct(decodedId, query);
+  }
+
+  /**
+   * Get a single review by ID
+   * IMPORTANT: This must come after all specific routes (me, reviewable, product/:productId)
+   * because :id is a wildcard that matches any string
+   */
+  @Get(':id')
+  @ApiOkResponse({ type: ReviewWithoutUser })
+  async getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewsService.findOne(id);
   }
 
   /**

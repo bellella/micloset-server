@@ -10,6 +10,7 @@ import { Type } from 'class-transformer';
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
 import { CursorResponseDto } from '@/common/dto/curosr-response.dto';
 import { Review } from '@/generated/prisma/entities/review';
+import { ItemResponseDto } from '@/common/dto/item-response.dto';
 
 export class CreateReviewDto {
   @ApiProperty()
@@ -50,7 +51,7 @@ export class CreateReviewDto {
 
 export class UpdateReviewDto extends PartialType(CreateReviewDto) {}
 
-class ReviewWithoutUser extends OmitType(Review, ['user'] as const) {
+export class ReviewWithoutUser extends OmitType(Review, ['user'] as const) {
   @ApiProperty({ type: String })
   productImageUrl?: string;
 }
@@ -64,6 +65,12 @@ export class GetAllByProductIdResponse extends CursorResponseDto<Review> {
   @ApiProperty({ type: [Review] })
   declare items: Review[];
 }
+
+export class GetPreviewByProductId extends ItemResponseDto<Review> {
+  @ApiProperty({ type: [Review] })
+  declare items: Review[];
+}
+
 
 export class UpdateReviewResponse extends ReviewWithoutUser {}
 

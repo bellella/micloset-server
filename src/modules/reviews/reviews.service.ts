@@ -76,6 +76,31 @@ export class ReviewsService {
   }
 
   /**
+   * Find preview reviews for a product (5 reviews for product detail page)
+   */
+  async findPreviewByProduct(productId: string) {
+    const items = await this.prisma.review.findMany({
+      where: { productId },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    const totalCount = await this.prisma.review.count({
+      where: { productId },
+    });
+
+    return {
+      items,
+      totalCount,
+    };
+  }
+
+  /**
    * Find reviews for a specific product.
    * Includes user's first name to display "Reviewed by John".
    */
@@ -103,6 +128,26 @@ export class ReviewsService {
     }
 
     return new CursorResponseDto(items, nextCursor);
+  }
+
+  /**
+   * Find a single review by ID
+   */
+  async findOne(reviewId: number) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    return review;
   }
 
   /**

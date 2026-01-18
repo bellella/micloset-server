@@ -164,6 +164,20 @@ export class AuthController {
 
 
   /**
+   * Logout endpoint
+   * Clears the authentication cookie
+   */
+  @Post('logout')
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful',
+  })
+  async logout(@Res({ passthrough: true }) res: express.Response) {
+    res.clearCookie('access_token');
+    return { message: 'Logout successful' };
+  }
+
+  /**
    * Sets the Access Token and Refresh Token in secure HTTP-Only cookies.
    */
   private setTokensInCookies(
@@ -172,13 +186,13 @@ export class AuthController {
     refreshToken: string
   ): void {
     const isProduction = process.env.NODE_ENV === 'production';
-
     // Access Token (Short-lived, HTTP-Only)
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 12 * 2, // 2 days
+      domain: isProduction ? process.env.ORIGIN_URL : undefined,
     });
   }
 }
