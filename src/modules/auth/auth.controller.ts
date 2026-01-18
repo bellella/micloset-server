@@ -192,7 +192,6 @@ export class AuthController {
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 12 * 2, // 2 days
-      domain: isProduction ? process.env.ORIGIN_URL : undefined,
     });
   }
 }
